@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ScraperController;
+use App\Http\Controllers\ScrapeEducationData;
 
-Route::get('/', [ScraperController::class, 'form']);
-Route::post('/scrape', [ScraperController::class, 'scrape']);
+Route::get('/', [ScrapeEducationData::class, 'form']);
+Route::post('/scrape', [ScrapeEducationData::class, 'scrape'])->name('scrape');
