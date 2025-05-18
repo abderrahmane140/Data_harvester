@@ -26,7 +26,7 @@
             <div class="flex flex-col justify-between gap-4">
                 <form method="POST" action="/scrape">
                     @csrf
-                    <input type="text" name="url" placeholder="Paste URL here" class="bg-white p-2" style="width: 300px;">
+                    <input type="text" name="url" placeholder="Paste URL here" class="bg-white p-2" style="width: 50%;">
                     <button type="submit" class="bg-white rounded-sm p-2">Scrape</button>
                 </form> 
     
@@ -37,7 +37,7 @@
                         <textarea class="bg-white" name="" id="" cols="30" rows="10">No content scraped.</textarea>
                     @endif
                 @else
-                    <textarea class="bg-white" name="" id="" cols="30" rows="10">No content available.</textarea>
+                    <textarea class="bg-white" name="" id="" cols="100" rows="10" style="width: 100%; height: 300px; padding: 1rem; font-size: 1.2rem; border: 1px solid #ccc; border-radius: 8px; resize: vertical; background-color: #f9f9f9;">No content available.</textarea>
                 @endisset
             </div>
         </div>
