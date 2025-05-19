@@ -20,4 +20,6 @@ class Course extends Model
     {
         return $this->hasMany(Exercise::class);
     }
+        protected $fillable = ['level_id', 'name', 'url'];
+
 }
