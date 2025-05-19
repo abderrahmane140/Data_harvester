@@ -24,7 +24,7 @@
 
         <div class="flex items-center justify-center w-full transition-opacity opacity-100 duration-750 lg:grow starting:opacity-0">
             <div class="flex flex-col justify-between gap-4">
-                <form method="POST" action="/scrape">
+                <form method="POST" action="{{ route('scrape') }}">
                     @csrf
                     <input type="text" name="url" placeholder="Paste URL here" class="bg-white p-2" style="width: 50%;">
                     <button type="submit" class="bg-white rounded-sm p-2">Scrape</button>
