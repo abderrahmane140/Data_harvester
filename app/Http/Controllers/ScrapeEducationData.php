@@ -127,15 +127,15 @@ class ScrapeEducationData extends Controller
             '.entry-content .table-responsive',
             '.entry-content .dire table-responsive',
         ];  
-        //$isDataPage = $crawler->filter('.entry-content #tableone');
-        $isDataPage = null;
-        foreach ($possibleSelectors as $selector) {
-            $candidate = $crawler->filter($selector);
-            if ($c`andidate->count() > 0) {
-                $isDataPage = $candidate;
-                break;
-            }
-        }
+        $isDataPage = $crawler->filter('.entry-content #tableone');
+        // $isDataPage = null;
+        // foreach ($possibleSelectors as $selector) {
+        //     $candidate = $crawler->filter($selector);
+        //     if ($c`andidate->count() > 0) {
+        //         $isDataPage = $candidate;
+        //         break;
+        //     }
+        // }
         if ($isDataPage->count() > 0) {
         echo "Data page detected";
 
