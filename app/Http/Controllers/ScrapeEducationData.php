@@ -121,23 +121,23 @@ class ScrapeEducationData extends Controller
                 }
             }
 
-                $possibleSelectors = [
-                    '.entry-content #tableone',
-                    '.entry-content .table-responsive',
-                    '.entry-content .dire table-responsive',
-                ];
-
-                $isDataPage = null;
-                foreach ($possibleSelectors as $selector) {
-                    $candidate = $crawler->filter($selector);
-                    if ($candidate->count() > 0) {
-                        $isDataPage = $candidate;
-                        break;
-                    }
-                }
-
-                if ($isDataPage && $isDataPage->count() > 0) {
-                    echo "Table found!";
+            // save the links as data    #tableone  .table-responsive
+            $possibleSelectors = [
+            '.entry-content #tableone',
+            '.entry-content .table-responsive',
+            '.entry-content .dire table-responsive',
+        ];  
+        //$isDataPage = $crawler->filter('.entry-content #tableone');
+        $isDataPage = null;
+        foreach ($possibleSelectors as $selector) {
+            $candidate = $crawler->filter($selector);
+            if ($c`andidate->count() > 0) {
+                $isDataPage = $candidate;
+                break;
+            }
+        }
+        if ($isDataPage->count() > 0) {
+        echo "Data page detected";
 
                     // Extract and decode slug from URL
                     $path = parse_url($url, PHP_URL_PATH) ?? '';

@@ -16,3 +16,6 @@ Route::get('/courses/{level_id}', [DataDisplayController::class, 'getCourses']);
 
 // Récupération des détails (leçons + exercices) d’un cours
 Route::get('/details/{course_id}', [DataDisplayController::class, 'getDetails']);
+
+// ----
+Route::get('/details/{courseId}', [DetailsController::class, 'show']);

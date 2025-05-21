@@ -32,4 +32,3 @@ class DataDisplayController extends Controller
         ]);
     }
 }
-
