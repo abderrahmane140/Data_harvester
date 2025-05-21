@@ -10,6 +10,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use App\Models\Level;
 use App\Models\Course;
 use App\Models\Lesson;
+ use App\Models\Data;
 
 class ScrapeEducationData extends Controller
 {
@@ -119,6 +120,95 @@ class ScrapeEducationData extends Controller
                     }
                 }
             }
+
+            // save the links as data    #tableone  .table-responsive
+            $possibleSelectors = [
+            '.entry-content #tableone',
+            '.entry-content .table-responsive',
+            '.entry-content .dire table-responsive',
+        ];  
+        //$isDataPage = $crawler->filter('.entry-content #tableone');
+        $isDataPage = null;
+        foreach ($possibleSelectors as $selector) {
+            $candidate = $crawler->filter($selector);
+            if ($c`andidate->count() > 0) {
+                $isDataPage = $candidate;
+                break;
+            }
+        }
+        if ($isDataPage->count() > 0) {
+        echo "Data page detected";
+
+        // Extract slug from URL
+        $urlParts = parse_url($url);
+        $path = $urlParts['path'] ?? '';
+        $slug = trim(basename($path), '/');
+        $decodedSlug = urldecode($slug);
+
+        // Process slug
+        $slugWords = explode('-', $decodedSlug);
+        $joinedSlug = implode(' ', $slugWords);
+
+        // Match level
+        $matchedLevel = null;
+        foreach ($levels as $level) {
+            if (mb_strpos($joinedSlug, $level) !== false) {
+                $matchedLevel = $level;
+                break;
+            }
+        }
+
+        // Remove level to get lesson name
+        $lessonName = $matchedLevel ? str_replace($matchedLevel, '', $joinedSlug) : $joinedSlug;
+        $lessonName = trim($lessonName);
+
+        // Get levelId and lessonId
+        $levelId = $matchedLevel
+            ? optional(Level::where('name', 'like', '%' . $matchedLevel . '%')->first())->id
+            : null;
+
+        $lessonId = $lessonName
+            ? optional(Lesson::where('title', 'like', '%' . $lessonName . '%')->first())->id
+            : null;
+
+        $courseId = $lessonId ? Lesson::where('id', $lessonId)->value('course_id') : null;
+
+        // Extract table headers
+        $headers = [];
+        $crawler->filter('#tableone tr')->first()->filter('td, th')->each(function ($cell) use (&$headers) {
+            $headerText = trim($cell->text());
+            $headers[] = $headerText !== '' ? $headerText : 'عمود';
+        });
+
+        // Loop over each table row
+        $crawler->filter('#tableone tr')->each(function ($row, $index) use ($headers, $levelId, $lessonId, $courseId) {
+            if ($index === 0) return; // Skip header row
+
+            $row->filter('td')->each(function ($cell, $cellIndex) use ($headers, $levelId, $lessonId, $courseId) {
+                $link = $cell->filter('a');
+                if ($link->count() > 0) {
+                    $linkText = trim($link->text());
+                    $linkHref = $link->attr('href');
+
+                    Data::create([
+                        'level_id' => $levelId,
+                        'lesson_id' => $lessonId,
+                        'course_id' => $courseId,
+                        'exercise_id' => null,
+                        'title' => $linkText !== '' ? $linkText : ($headers[$cellIndex] ?? 'رابط'),
+                        'url' => $linkHref,
+                        'value' => $headers[$cellIndex] ?? null, // this will be 'دروس', 'ملخصات', etc.
+                    ]);
+                }
+            });
+        });
+    }
+
+
+
+
+
+
 
             return view('welcome', compact('content'));
 
