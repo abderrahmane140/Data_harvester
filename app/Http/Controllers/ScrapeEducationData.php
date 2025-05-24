@@ -100,9 +100,25 @@ class ScrapeEducationData extends Controller
                     }
                 }
             }
+            $possibleSelectors = [
+                '.entry-content #tableone',
+                '.entry-content .dire #tableone',
+                '.entry-content .table-responsive',
+                '.entry-content .dire table-responsive',
+                '.entry-content .dire table',
+            ];
+            $isDataPage = null;
+            foreach ($possibleSelectors as $selector) {
+                $candidate = $crawler->filter($selector);
+                if ($candidate->count() > 0) {
+                    $isDataPage = $candidate;
+                    break;
+                }
+            }
 
-            // Save Lessons if subject matched
-            if ($matchedSubject) {
+
+           // Save Lessons if subject matched
+            if ($matchedSubject && !$isDataPage->count() > 0) {
             $course = Course::where('name', 'like', '%' . $matchedSubject . '%')
                 ->where('level_id', $level->id)
                 ->first();
@@ -121,85 +137,89 @@ class ScrapeEducationData extends Controller
                 }
             }
 
-            // save the links as data    #tableone  .table-responsive
-            $possibleSelectors = [
-            '.entry-content #tableone',
-            '.entry-content .table-responsive',
-            '.entry-content .dire table-responsive',
-        ];  
-        //$isDataPage = $crawler->filter('.entry-content #tableone');
-        $isDataPage = null;
-        foreach ($possibleSelectors as $selector) {
-            $candidate = $crawler->filter($selector);
-            if ($c`andidate->count() > 0) {
-                $isDataPage = $candidate;
-                break;
-            }
-        }
-        if ($isDataPage->count() > 0) {
-        echo "Data page detected";
 
-                    // Extract and decode slug from URL
-                    $path = parse_url($url, PHP_URL_PATH) ?? '';
-                    $decodedSlug = urldecode(trim(basename($path), '/'));
-                    $slugWords = explode('-', $decodedSlug);
-                    $joinedSlug = implode(' ', $slugWords);
 
-                    // Match level
-                    $matchedLevel = collect($levels)->first(function ($level) use ($joinedSlug) {
-                        return mb_strpos($joinedSlug, $level) !== false;
-                    });
 
-                    // Extract lesson name and trim
-                    $lessonName = trim(str_replace($matchedLevel, '', $joinedSlug));
+if ($isDataPage && $isDataPage->count() > 0) {
+    echo "Table found!\n";
 
-                    // Get related IDs
-                    $levelId = $matchedLevel ? optional(Level::where('name', 'like', "%$matchedLevel%")->first())->id : null;
-                    $lessonId = $lessonName ? optional(Lesson::where('title', 'like', "%$lessonName%")->first())->id : null;
-                    $courseId = $lessonId ? Lesson::where('id', $lessonId)->value('course_id') : null;
+    // Extract and decode slug from URL
+    $path = parse_url($url, PHP_URL_PATH) ?? '';
+    $decodedSlug = urldecode(trim(basename($path), '/'));
+    $slugWords = explode('-', $decodedSlug);
+    $joinedSlug = implode(' ', $slugWords);
 
-                    echo "lessonid: $lessonId, levelid: $levelId, courseid: $courseId";
+    // Match level
+    $matchedLevel = collect($levels)->first(function ($level) use ($joinedSlug) {
+        return mb_stripos($joinedSlug, $level) !== false;
+    });
 
-                    // Loop through each table found in selector (in case there are multiple tables)
-                    $isDataPage->each(function ($table) use ($levelId, $lessonId, $courseId) {
-                        // Extract headers
-                        $headers = $table->filter('tr')->first()->filter('td, th')->each(function ($cell) {
-                            $text = trim($cell->text());
-                            return $text !== '' ? $text : 'عمود';
-                        });
+    // Match course
+    $matchedCourse = collect($subjects)->first(function ($course) use ($joinedSlug) {
+        return mb_stripos($joinedSlug, $course) !== false;
+    });
 
-                        // Loop through each row
-                        $table->filter('tr')->each(function ($row, $rowIndex) use ($headers, $levelId, $lessonId, $courseId) {
-                            if ($rowIndex === 0) return; // Skip header row
+    // Remove level from slug to try to get lesson name
+    $lessonName = trim(str_replace($matchedLevel, '', $joinedSlug));
 
-                            // Get the title from the first td
-                            $rowTitle = trim(optional($row->filter('td')->eq(0))->text());
+    // Get related IDs
+    $levelId = $matchedLevel ? optional(Level::where('name', 'like', "%$matchedLevel%")->first())->id : null;
+    $courseId = $matchedCourse ? optional(Course::where('name', 'like', "%$matchedCourse%")->first())->id : null;
+    $lessonId = $lessonName ? optional(Lesson::where('title', 'like', "%$lessonName%")->first())->id : null;
 
-                            // Loop through each cell starting from index 1
-                            $row->filter('td')->each(function ($cell, $colIndex) use ($headers, $rowTitle, $levelId, $lessonId, $courseId) {
-                                // Skip the title column
-                                if ($colIndex === 0) return;
+    // Fallback: get course from lesson if course not found directly
+    if (!$courseId && $lessonId) {
+        $courseId = Lesson::where('id', $lessonId)->value('course_id');
+    }
 
-                                $link = $cell->filter('a');
-                                $text = trim($cell->text());
+    echo "slug: $joinedSlug\n";
+    echo "matched level: $matchedLevel\n";
+    echo "matched course: $matchedCourse\n";
+    echo "lessonid: $lessonId, levelid: $levelId, courseid: $courseId\n";
 
-                                if ($link->count() > 0) {
-                                    $linkHref = $link->attr('href');
+    // Loop through each table found in selector (in case there are multiple tables)
+    $isDataPage->each(function ($table) use ($levelId, $lessonId, $courseId) {
+        // Extract headers
+        $headers = $table->filter('tr')->first()->filter('td, th')->each(function ($cell) {
+            $text = trim($cell->text());
+            return $text !== '' ? $text : 'عمود';
+        });
 
-                                    Data::create([
-                                        'level_id'    => $levelId,
-                                        'lesson_id'   => $lessonId,
-                                        'course_id'   => $courseId,
-                                        'exercise_id' => null,
-                                        'title'       => $rowTitle,
-                                        'url'         => $linkHref,
-                                        'value'       => $headers[$colIndex] ?? null,
-                                    ]);
-                                }
-                            });
-                        });
-                    });
+        // Loop through each row
+        $table->filter('tr')->each(function ($row, $rowIndex) use ($headers, $levelId, $lessonId, $courseId) {
+            if ($rowIndex === 0) return; // Skip header row
+
+            $cells = $row->filter('td');
+
+            $cells->each(function ($cell, $colIndex) use ($headers, $levelId, $lessonId, $courseId) {
+                $link = $cell->filter('a');
+                $text = trim($cell->text());
+
+                // Make sure we only process cells that have a link
+                if ($link->count() > 0 && isset($headers[$colIndex])) {
+                    $linkHref = $link->attr('href');
+                    $value = $headers[$colIndex]; // Always defined now
+
+                    // Optional: row title could come from first column only
+                    $rowTitle = trim(optional($cell->ancestors()->filter('tr')->first()->filter('td')->eq(0))->text());
+                    if ($value ==='المرحلة الأولى' || $value === 'المرحلة الثانية' || $value === 'المرحلة الثالثة') {
+                        $value = 'فروض';
+                    }
+                    Data::create([
+                        'level_id'    => $levelId,
+                        'lesson_id'   => $lessonId,
+                        'course_id'   => $courseId,
+                        'title'       => $rowTitle,
+                        'url'         => $linkHref,
+                        'value'       => $value,
+                    ]);
                 }
+            });
+        });
+    });
+}
+
+
            return view('welcome', compact('content'));
 
         } catch (\Exception $e) {

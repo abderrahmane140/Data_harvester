@@ -44,84 +44,125 @@
         <table class="min-w-full bg-white border border-gray-300 rounded-md overflow-hidden text-sm text-center">
             <thead class="bg-gray-200 text-gray-700">
                 <tr>
-                    <th class="px-4 py-2 border">دروس</th>
-                    <th class="px-4 py-2 border">ملخصات</th>
-                    <th class="px-4 py-2 border">تمارين</th>
-                    <th class="px-4 py-2 border">فروض</th>
-                    <th class="px-4 py-2 border">جذاذات</th>
-                    <th class="px-4 py-2 border">فيديوهات</th>
+                    <th class="px-4 py-2 border">نوع المحتوى</th>
+                    <th class="px-4 py-2 border">العنوان</th>
+                    <th class="px-4 py-2 border">رابط التحميل</th>
                 </tr>
             </thead>
             <tbody id="customContentTable" class="text-gray-700">
-                <!-- Données injectées ici -->
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    $('#levelSelect').on('change', function () {
-        let levelId = $(this).val();
-        $('#courseSelect').html('<option>Chargement...</option>').prop('disabled', true);
-        $('#lessonSelect').html('<option>-- Choisir une leçon --</option>').prop('disabled', true);
-        $('#customContentTable').empty();
+$(document).ready(function () {
+    $('#levelSelect').change(function () {
+        const levelId = $(this).val();
+        $('#courseSelect').prop('disabled', true).html('<option value="">Chargement...</option>');
+        $('#lessonSelect').prop('disabled', true).html('<option value="">-- Choisir une leçon --</option>');
 
         if (levelId) {
-            $.get('/courses/' + levelId, function (courses) {
-                $('#courseSelect').html('<option value="">-- Choisir un cours --</option>');
-                courses.forEach(course => {
-                    $('#courseSelect').append(`<option value="${course.id}">${course.name}</option>`);
-                });
-                $('#courseSelect').prop('disabled', false);
-            });
-        }
-    });
-
-    $('#courseSelect').on('change', function () {
-        let courseId = $(this).val();
-        $('#customContentTable').empty();
-        $('#lessonSelect').html('<option>Chargement...</option>').prop('disabled', true);
-
-        if (courseId) {
-            $.get('/details/' + courseId, function (data) {
-                let rowCount = Math.max(data.lessons.length, data.exercises.length);
-
-                for (let i = 0; i < rowCount; i++) {
-                    let lesson = data.lessons[i] || {};
-                    let exercise = data.exercises[i] || {};
-
-                    $('#customContentTable').append(`
-                        <tr>
-                            <td class="border px-4 py-2">
-                                ${lesson.title ? `<a href="${lesson.url}" target="_blank" class="text-blue-600 underline">${lesson.title}</a>` : ''}
-                            </td>
-                            <td class="border px-4 py-2">—</td>
-                            <td class="border px-4 py-2">
-                                ${exercise.title ? `<a href="${exercise.url}" target="_blank" class="text-green-600 underline">${exercise.title}</a>` : ''}
-                            </td>
-                            <td class="border px-4 py-2">—</td>
-                            <td class="border px-4 py-2">—</td>
-                            <td class="border px-4 py-2">—</td>
-                        </tr>
-                    `);
+            $.ajax({
+                url: '/get-courses/' + levelId,
+                type: 'GET',
+                success: function (courses) {
+                    let options = '<option value="">-- Choisir un cours --</option>';
+                    $.each(courses, function (key, course) {
+                        options += `<option value="${course.id}">${course.name}</option>`;
+                    });
+                    $('#courseSelect').html(options).prop('disabled', false);
                 }
-
-                // Remplir le select leçon
-                $('#lessonSelect').html('<option value="">-- Choisir une leçon --</option>');
-                data.lessons.forEach(lesson => {
-                    $('#lessonSelect').append(`<option value="${lesson.id}">${lesson.title}</option>`);
-                });
-                $('#lessonSelect').prop('disabled', false);
             });
         }
     });
+    
+$('#courseSelect').change(function () {
+    const courseId = $(this).val();
+    $('#lessonSelect').prop('disabled', true).html('<option value="">Chargement...</option>');
+    $('#customContentTable').html(''); // Clear previous data
 
-    $('#lessonSelect').on('change', function () {
-        let lessonId = $(this).val();
+    if (courseId) {
+        $.ajax({
+            url: '/get-lessons/' + courseId,
+            type: 'GET',
+            success: function (response) {
+                if (response.type === 'lessons') {
+                    let options = '<option value="">-- Choisir une leçon --</option>';
+                    $.each(response.items, function (key, lesson) {
+                        options += `<option value="${lesson.id}">${lesson.title}</option>`;
+                    });
+                    $('#lessonSelect').html(options).prop('disabled', false);
+                } else if (response.type === 'data') {
+                    $('#lessonSelect').html('<option value="">Aucune leçon disponible</option>').prop('disabled', true);
+                    renderContentTable(response.items);
+                }
+            },
+            error: function () {
+                $('#lessonSelect').html('<option value="">Erreur lors du chargement</option>');
+            }
+        });
+    }
+});
+
+
+    $('#lessonSelect').change(function () {
+        const lessonId = $(this).val();
         if (lessonId) {
-            alert("Leçon sélectionnée : " + lessonId);
+            $.ajax({
+                url: '/get-data/' + lessonId,
+                type: 'GET',
+                success: function (dataItems) {
+                    renderContentTable(dataItems);
+                },
+                error: function () {
+                    $('#customContentTable').html(
+                        '<tr><td colspan="3" class="text-center text-red-600 py-4">Erreur lors du chargement</td></tr>'
+                    );
+                }
+            });
+        } else {
+            $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Aucune donnée disponible</td></tr>');
         }
+        });
+});
+//custom function to render content table
+function renderContentTable(dataItems) {
+    const grouped = {};
+
+    // Group by content type
+    dataItems.forEach(item => {
+        if (!grouped[item.value]) {
+            grouped[item.value] = [];
+        }
+        grouped[item.value].push({
+            title: item.title,
+            url: item.url
+        });
     });
+
+    let html = '';
+    for (const value in grouped) {
+        html += `
+            <tr class="bg-gray-100 font-semibold"><td colspan="3">${value}</td></tr>
+        `;
+        grouped[value].forEach(item => {
+            html += `
+                <tr>
+                    <td class="border px-4 py-2">${value}</td>
+                    <td class="border px-4 py-2">${item.title}</td>
+                    <td class="border px-4 py-2">
+                        <a href="${item.url}" target="_blank" class="text-blue-600 underline">تحميل</a>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    $('#customContentTable').html(
+        html || '<tr><td colspan="3" class="text-center py-4">Aucune donnée disponible</td></tr>'
+    );
+}
 </script>
 
 </body>
