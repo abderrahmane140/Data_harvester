@@ -21,20 +21,23 @@
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="text-[#1b1b18] bg-neutral-300 flex p-6 lg:p-8 items-center lg:justify-center  flex-col">
+            <div class="flex justify-end w-full mb-4 ">
+                <a class="p-1 rounded-md w-16 text-center bg-sky-400 hover:bg-sky-500" href="{{route('data.index')}}">Data</a>
+            </div>  
 
         <div class="flex items-center justify-center w-full transition-opacity opacity-100 duration-750 lg:grow starting:opacity-0">
             <div class="flex flex-col justify-between gap-4">
-                <form method="POST" action="{{ route('scrape') }}">
+                <form method="POST" action="{{ route('scrape') }}" class="text-center">
                     @csrf
                     <input type="text" name="url" placeholder="Paste URL here" class="bg-white p-2" style="width: 50%;">
-                    <button type="submit" class="bg-white rounded-sm p-2">Scrape</button>
+                    <button type="submit" class="bg-sky-400 hover:bg-sky-500 rounded-sm p-2">scrape</button>
                 </form> 
     
                 @isset($content)
                     @if(is_array($content) && !empty($content))
-                        <textarea class="bg-white" name="" id="" cols="30" rows="10">{{ implode("\n", $content) }}</textarea>
+                        <textarea class="bg-white" name="" id="" cols="100" rows="10" style="width: 100%; height: 300px; padding: 1rem; font-size: 1.2rem; border: 1px solid #ccc; border-radius: 8px; resize: vertical; background-color: #f9f9f9;">{{ implode("\n", $content) }}</textarea>
                     @else
-                        <textarea class="bg-white" name="" id="" cols="30" rows="10">No content scraped.</textarea>
+                        <textarea class="bg-white" name="" id="" cols="100" rows="10" style="width: 100%; height: 300px; padding: 1rem; font-size: 1.2rem; border: 1px solid #ccc; border-radius: 8px; resize: vertical; background-color: #f9f9f9;">No content scraped.</textarea>
                     @endif
                 @else
                     <textarea class="bg-white" name="" id="" cols="100" rows="10" style="width: 100%; height: 300px; padding: 1rem; font-size: 1.2rem; border: 1px solid #ccc; border-radius: 8px; resize: vertical; background-color: #f9f9f9;">No content available.</textarea>
