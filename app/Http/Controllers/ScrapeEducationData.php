@@ -76,6 +76,7 @@ class ScrapeEducationData extends Controller
         $normalizedTitle = str_replace('المستوى الثالث', 'الثالث ابتدائي', $normalizedTitle);
         $normalizedTitle = str_replace('المستوى الرابع', 'الرابع ابتدائي', $normalizedTitle);
         $normalizedTitle = str_replace('المستوى الخامس', 'الخامس ابتدائي', $normalizedTitle);
+        $normalizedTitle = str_replace('المستوى السادس', 'السادس ابتدائي', $normalizedTitle);
 
         // Match values
         $matchedLevel = collect($levels)->first(fn($lvl) => mb_strpos($normalizedTitle, $lvl) !== false);
@@ -164,6 +165,7 @@ if ($isDataPage && $isDataPage->count() > 0) {
     $joinedSlug = str_replace('المستوى الثالث', 'الثالث ابتدائي', $joinedSlug);
     $joinedSlug = str_replace('المستوى الرابع', 'الرابع ابتدائي', $joinedSlug);
     $joinedSlug = str_replace('المستوى الخامس', 'الخامس ابتدائي', $joinedSlug);
+    $joinedSlug = str_replace('المستوى السادس', 'السادس ابتدائي', $joinedSlug);
     // Match level
     $matchedLevel = collect($levels)->first(function ($level) use ($joinedSlug) {
         return mb_stripos($joinedSlug, $level) !== false;
