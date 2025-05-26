@@ -5,7 +5,7 @@ use App\Http\Controllers\ScrapeEducationData;
 use App\Http\Controllers\DataController;
 
 // Page d'accueil avec formulaire pour scraper
-Route::get('/', [ScrapeEducationData::class, 'form']);
+Route::get('/', [ScrapeEducationData::class, 'form'])->name('home');
 Route::post('/scrape', [ScrapeEducationData::class, 'scrape'])->name('scrape');
 
 // Pages d'affichage des données
