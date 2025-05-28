@@ -58,15 +58,15 @@ class ScrapeEducationData extends Controller
 
             // Define reference data
             $levels = ['الثانية باك', 'اولى باك','جذع مشترك', 'الثالثة اعدادي', 'الثانية اعدادي', 'الاولى اعدادي', 'السادس ابتدائي', 'الخامس ابتدائي', 'الرابع ابتدائي', 'الثالث ابتدائي', 'الثاني ابتدائي', 'الاول ابتدائي'];
-            $types = ['دروس', 'فروض', 'امتحانات', 'ملخصات', 'تمارين'];
+            $types = ['دروس', 'فروض', ' وامتحانات', 'امتحانات', 'ملخصات', 'تمارين'];
             $subjects = [
                 'الرياضيات', 'الفيزياء والكيمياء', 'علوم الحياة والارض', 'اللغة الانجليزية', 'اللغة الفرنسية',
                 'اللغة العربية', 'الفلسفة', 'التاريخ والجغرافيا', 'علوم المهندس', 'القانون',
                 'المحاسبة والرياضيات المالية', 'الاقتصاد والتنظيم الاداري للمقاولات', 'الإقتصاد العام والإحصاء',
-                'معلوميات التدبير', 'الفقه والاصول', 'التربية الاسلامية','النشاط العلمي','الاجتماعيات'
+                'معلوميات التدبير', 'الفقه والاصول', 'التربية الاسلامية','النشاط العلمي','الاجتماعيات','التربية السلامية','التكنولوجيا الصناعية'
             ];
 
-            // Normalize title
+        // Normalize title
         // Normalize title
         $normalizedTitle = preg_replace('/\s+/', ' ', trim($title));
 
@@ -77,6 +77,7 @@ class ScrapeEducationData extends Controller
         $normalizedTitle = str_replace('المستوى الرابع', 'الرابع ابتدائي', $normalizedTitle);
         $normalizedTitle = str_replace('المستوى الخامس', 'الخامس ابتدائي', $normalizedTitle);
         $normalizedTitle = str_replace('المستوى السادس', 'السادس ابتدائي', $normalizedTitle);
+        $normalizedTitle = str_replace( 'الأولى اعدادي', 'الاولى اعدادي', $normalizedTitle);
 
         // Match values
         $matchedLevel = collect($levels)->first(fn($lvl) => mb_strpos($normalizedTitle, $lvl) !== false);
@@ -131,14 +132,18 @@ class ScrapeEducationData extends Controller
 
            // Save Lessons if subject matched
             if ($matchedSubject && (!($isDataPage && $isDataPage->count() > 0))) {
+            echo "is lesson page\n";
+            if ($matchedSubject === 'التربية السلامية'){
+                $matchedSubject = 'التربية الإسلامية';
+            }
             $course = Course::where('name', 'like', '%' . $matchedSubject . '%')
-                ->where('level_id', $level->id)
-                ->first();
+            ->where('level_id', $level->id)
+            ->first();
                 if ($course) {
                     foreach ($content as $line) {
                         $lessonTitle = trim($line);
                         if (mb_strlen($lessonTitle) > 3) {
-                            Lesson::firstOrCreate([
+                                Lesson::firstOrCreate([
                                 'course_id' => $course->id,
                                 'title' => $lessonTitle,
                             ], [
@@ -154,60 +159,58 @@ class ScrapeEducationData extends Controller
 
 if ($isDataPage && $isDataPage->count() > 0) {
     echo "Table found!\n";
+    $matchedLevel = str_replace('المستوى الاول', 'الاول ابتدائي', $matchedLevel);
+    $matchedLevel = str_replace('المستوى الثاني', 'الثاني ابتدائي', $matchedLevel);
+    $matchedLevel = str_replace('المستوى الثالث', 'الثالث ابتدائي', $matchedLevel);
 
-    // Extract and decode slug from URL
-    $path = parse_url($url, PHP_URL_PATH) ?? '';
-    $decodedSlug = urldecode(trim(basename($path), '/'));
-    $slugWords = explode('-', $decodedSlug);
-    $joinedSlug = implode(' ', $slugWords);
-    $joinedSlug = str_replace('المستوى الاول', 'الاول ابتدائي', $joinedSlug);
-    $joinedSlug = str_replace('المستوى الثاني', 'الثاني ابتدائي', $joinedSlug);
-    $joinedSlug = str_replace('المستوى الثالث', 'الثالث ابتدائي', $joinedSlug);
-    $joinedSlug = str_replace('المستوى الرابع', 'الرابع ابتدائي', $joinedSlug);
-    $joinedSlug = str_replace('المستوى الخامس', 'الخامس ابتدائي', $joinedSlug);
-    $joinedSlug = str_replace('المستوى السادس', 'السادس ابتدائي', $joinedSlug);
-    // Match level
-    $matchedLevel = collect($levels)->first(function ($level) use ($joinedSlug) {
-        return mb_stripos($joinedSlug, $level) !== false;
-    });
-    if ($matchedLevel == 'المستوى الاول') {
-        $matchedLevel = 'الاول ابتدائي';
+    $matchedLevel = collect($levels)->first(fn($lvl) => mb_strpos($normalizedTitle, $lvl) !== false);
+
+    // Find level in DB
+    $level = $matchedLevel
+        ? Level::where('name', 'like', '%' . $matchedLevel . '%')->first()
+        : null;
+
+    if (!$level) {
+        return response()->json(['error' => 'No matching level found in the title.'], 400);
     }
-
-    // Match course
-    $matchedCourse = collect($subjects)->first(function ($course) use ($joinedSlug) {
-        return mb_stripos($joinedSlug, $course) !== false;
-    });
-
-    // Remove level from slug to try to get lesson name
-    $lessonName = trim(str_replace($matchedLevel, '', $joinedSlug));
-
-    // Get related IDs
-    $levelId = $matchedLevel ? optional(Level::where('name', 'like', "%$matchedLevel%")->first())->id : null;
-    $courseId = $matchedCourse ? optional(Course::where('name', 'like', "%$matchedCourse%")->first())->id : null;
-    $lessonId = $lessonName ? optional(Lesson::where('title', 'like', "%$lessonName%")->first())->id : null; 
-    
-    // Fallback: get course from lesson if course not found directly
-    if (!$courseId && $lessonId) {
-        $courseId = Lesson::where('id', $lessonId)->value('course_id');
+    $matchLesson = str_replace($levels, '', $normalizedTitle);
+    $types = ['دروس', 'فروض', 'امتحانات', 'ملخصات','ملخص','وتمارين','و تمارين'];
+    foreach($types as $type) {
+        $matchLesson = str_replace($type, '', $matchLesson);
     }
+    $matchLesson = trim($matchLesson);
+    $lessonId = $matchLesson ? optional(Lesson::where('title', 'like', "%$matchLesson%")->first())->id : null;
+    //dd($matchLesson, $matchedLevel);
+    // if (!$lessonId) {
+    //     return response()->json(['error' => 'No matching lesson found in the title.'], 400);
+    // }
+    $courseId = $lessonId ? Lesson::where('id', $lessonId)->value('course_id') : null;
+    if (!$courseId) {
+        $course = Course::where('level_id', $level->id)->first();
+        if (!$course) {
+            return response()->json(['error' => 'No matching course found for the level.'], 400);
+        }
+        $courseId = $course->id;
+    } else {
+        $course = Course::find($courseId);
+    }
+    $levelId = $level->id;
+    //dd($lessonId,$courseId);
 
-    echo "slug: $joinedSlug\n";
-    echo "matched level: $matchedLevel\n";
-    echo "matched course: $matchedCourse\n";
+
+    echo "slug: $normalizedTitle\n";
+    echo "matched level: $level\n";
     echo "lessonid: $lessonId, levelid: $levelId, courseid: $courseId\n";
 
-    // Loop through each table found in selector (in case there are multiple tables)
+    // Process each table
     $isDataPage->each(function ($table) use ($levelId, $lessonId, $courseId) {
-        // Extract headers
         $headers = $table->filter('tr')->first()->filter('td, th')->each(function ($cell) {
             $text = trim($cell->text());
             return $text !== '' ? $text : 'عمود';
         });
 
-        // Loop through each row
         $table->filter('tr')->each(function ($row, $rowIndex) use ($headers, $levelId, $lessonId, $courseId) {
-            if ($rowIndex === 0) return; // Skip header row
+            if ($rowIndex === 0) return; // Skip headers
 
             $cells = $row->filter('td');
 
@@ -215,29 +218,29 @@ if ($isDataPage && $isDataPage->count() > 0) {
                 $link = $cell->filter('a');
                 $text = trim($cell->text());
 
-                // Make sure we only process cells that have a link
                 if ($link->count() > 0 && isset($headers[$colIndex])) {
                     $linkHref = $link->attr('href');
-                    $value = $headers[$colIndex]; // Always defined now
+                    $value = $headers[$colIndex];
 
-                    // Optional: row title could come from first column only
                     $rowTitle = trim(optional($cell->ancestors()->filter('tr')->first()->filter('td')->eq(0))->text());
-                    if ($value ==='المرحلة الأولى' || $value === 'المرحلة الثانية' || $value === 'المرحلة الثالثة') {
+                    if (in_array($value, ['المرحلة الأولى', 'المرحلة الثانية', 'المرحلة الثالثة'])) {
                         $value = 'فروض';
                     }
+
                     Data::create([
-                        'level_id'    => $levelId,
-                        'lesson_id'   => $lessonId,
-                        'course_id'   => $courseId,
-                        'title'       => $rowTitle,
-                        'url'         => $linkHref,
-                        'value'       => $value,
+                        'level_id'  => $levelId,
+                        'lesson_id' => $lessonId,
+                        'course_id' => $courseId,
+                        'title'     => $rowTitle,
+                        'url'       => $linkHref,
+                        'value'     => $value,
                     ]);
                 }
             });
         });
     });
 }
+
 
 
            return view('welcome', compact('content'));
