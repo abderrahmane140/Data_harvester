@@ -58,12 +58,15 @@ class ScrapeEducationData extends Controller
 
             // Define reference data
             $levels = ['الثانية باك', 'اولى باك','جذع مشترك', 'الثالثة اعدادي', 'الثانية اعدادي', 'الاولى اعدادي', 'السادس ابتدائي', 'الخامس ابتدائي', 'الرابع ابتدائي', 'الثالث ابتدائي', 'الثاني ابتدائي', 'الاول ابتدائي'];
-            $types = ['دروس', 'فروض', ' وامتحانات', 'امتحانات', 'ملخصات', 'تمارين'];
+            $types = ['دروس', 'فروض', ' وامتحانات', 'امتحانات', 'ملخصات', 'تمارين', 'علمي و اداب'];
             $subjects = [
+                'التاريخ و الجغرافيا','علوم الحياة والارض',
+                'الرياضيات – اداب','علوم الحياة والارض – اداب',
+                'الفيزياء والكيمياء خيار فرنسية','الرياضيات خيار فرنسية',
                 'الرياضيات', 'الفيزياء والكيمياء', 'علوم الحياة والارض', 'اللغة الانجليزية', 'اللغة الفرنسية',
                 'اللغة العربية', 'الفلسفة', 'التاريخ والجغرافيا', 'علوم المهندس', 'القانون',
                 'المحاسبة والرياضيات المالية', 'الاقتصاد والتنظيم الاداري للمقاولات', 'الإقتصاد العام والإحصاء',
-                'معلوميات التدبير', 'الفقه والاصول', 'التربية الاسلامية','النشاط العلمي','الاجتماعيات','التربية السلامية','التكنولوجيا الصناعية'
+                'معلوميات التدبير', 'الفقه والاصول', 'التربية الاسلامية','النشاط العلمي','الاجتماعيات','التربية السلامية','التكنولوجيا الصناعية',
             ];
 
         // Normalize title
@@ -76,8 +79,21 @@ class ScrapeEducationData extends Controller
         $normalizedTitle = str_replace('المستوى الثالث', 'الثالث ابتدائي', $normalizedTitle);
         $normalizedTitle = str_replace('المستوى الرابع', 'الرابع ابتدائي', $normalizedTitle);
         $normalizedTitle = str_replace('المستوى الخامس', 'الخامس ابتدائي', $normalizedTitle);
+        $normalizedTitle = str_replace('الخامسة ابتدائي', 'الخامس ابتدائي', $normalizedTitle);
         $normalizedTitle = str_replace('المستوى السادس', 'السادس ابتدائي', $normalizedTitle);
         $normalizedTitle = str_replace( 'الأولى اعدادي', 'الاولى اعدادي', $normalizedTitle);
+        $normalizedTitle = str_replace( 'جذع مشترك', 'جذع مشترك', $normalizedTitle);
+        $normalizedTitle = str_replace( 'جدع مشترك', 'جذع مشترك', $normalizedTitle);
+        $normalizedTitle = str_replace( 'الثانية بكالوريا', 'الثانية باك', $normalizedTitle);
+        $normalizedTitle = str_replace( 'الفقه والأصول', 'الفقه والاصول', $normalizedTitle);
+
+
+
+
+        
+        //$normalizedTitle = str_replace( ':', ' -', $normalizedTitle);
+
+
 
         // Match values
         $matchedLevel = collect($levels)->first(fn($lvl) => mb_strpos($normalizedTitle, $lvl) !== false);
@@ -88,7 +104,6 @@ class ScrapeEducationData extends Controller
         $level = $matchedLevel
             ? Level::where('name', 'like', '%' . $matchedLevel . '%')->first()
             : null;
-
         if (!$level) {
             return response()->json(['error' => 'No matching level found in the title.'], 400);
         }
@@ -129,16 +144,25 @@ class ScrapeEducationData extends Controller
                 }
             }
 
-
+            //dd($matchedSubject,$normalizedTitle);
            // Save Lessons if subject matched
             if ($matchedSubject && (!($isDataPage && $isDataPage->count() > 0))) {
+            //dd('Matched subject:', $matchedSubject, 'Level:', $level->id);
             echo "is lesson page\n";
             if ($matchedSubject === 'التربية السلامية'){
                 $matchedSubject = 'التربية الإسلامية';
             }
-            $course = Course::where('name', 'like', '%' . $matchedSubject . '%')
-            ->where('level_id', $level->id)
-            ->first();
+            if($normalizedTitle === 'دروس ملخصات تمارين الرياضيات جذع مشترك اداب و علوم انسانية'){
+                $matchedSubject = 'الرياضيات – اداب';
+            }
+            if($normalizedTitle === 'دروس ملخصات تمارين علوم الحياة والارض جذع مشترك اداب وعلوم انسانية'){
+                $matchedSubject = 'علوم الحياة والارض – اداب';
+            }
+            $course = Course::where('name', $matchedSubject)
+                ->where('level_id', $level->id)
+                ->first();
+
+            //dd($course, $level->id,$matchedSubject);
                 if ($course) {
                     foreach ($content as $line) {
                         $lessonTitle = trim($line);
@@ -162,6 +186,7 @@ if ($isDataPage && $isDataPage->count() > 0) {
     $matchedLevel = str_replace('المستوى الاول', 'الاول ابتدائي', $matchedLevel);
     $matchedLevel = str_replace('المستوى الثاني', 'الثاني ابتدائي', $matchedLevel);
     $matchedLevel = str_replace('المستوى الثالث', 'الثالث ابتدائي', $matchedLevel);
+    $matchedLevel = str_replace( 'جذع مشترك', 'جذع مشترك', $matchedLevel);
 
     $matchedLevel = collect($levels)->first(fn($lvl) => mb_strpos($normalizedTitle, $lvl) !== false);
 
@@ -170,37 +195,59 @@ if ($isDataPage && $isDataPage->count() > 0) {
         ? Level::where('name', 'like', '%' . $matchedLevel . '%')->first()
         : null;
 
+    //dd($matchedLevel, $normalizedTitle, $level);
+
     if (!$level) {
         return response()->json(['error' => 'No matching level found in the title.'], 400);
     }
     $matchLesson = str_replace($levels, '', $normalizedTitle);
-    $types = ['دروس', 'فروض', 'امتحانات', 'ملخصات','ملخص','وتمارين','و تمارين'];
+    $types = ['دروس','درس', 'فروض', 'امتحانات', 'ملخصات','ملخص','وتمارين','و تمارين','2024-2025 مع التصحيح','ابتدائي ','دولي','تمارين','مسلك','علمي و اداب','علمي وتكنولوجي','اداب وعلوم انسانية','(علوم) وتكنولوجي','علمي','آداب وعلوم إنسانية','وتكنولوجية','و ','مع التصحيح','وطنية مادة','جهوية في ','محلية في','اقليمية في'];
     foreach($types as $type) {
         $matchLesson = str_replace($type, '', $matchLesson);
     }
     $matchLesson = trim($matchLesson);
-    $lessonId = $matchLesson ? optional(Lesson::where('title', 'like', "%$matchLesson%")->first())->id : null;
-    //dd($matchLesson, $matchedLevel);
-    // if (!$lessonId) {
-    //     return response()->json(['error' => 'No matching lesson found in the title.'], 400);
-    // }
-    $courseId = $lessonId ? Lesson::where('id', $lessonId)->value('course_id') : null;
-    if (!$courseId) {
-        $course = Course::where('level_id', $level->id)->first();
-        if (!$course) {
-            return response()->json(['error' => 'No matching course found for the level.'], 400);
-        }
-        $courseId = $course->id;
-    } else {
-        $course = Course::find($courseId);
+      if($matchLesson === 'الفيزياء والكيمياء  علوم خيار فرنسية'){
+        $matchLesson = 'الفيزياء والكيمياء  خيار فرنسية علوم الحياة والارض';
     }
+    $lesson = Lesson::where('title', 'like', "%$matchLesson%")
+        ->whereHas('course', function ($query) use ($level) {
+            $query->where('level_id', $level->id);
+        })
+    ->first();    
+    //dd($matchLesson, $matchedLevel);
+
+  
+
+    $lessonId = optional($lesson)->id;
+
+    $courseId = $lesson ? $lesson->course_id : null; 
+
+
+    // If lesson not found, try matching course directly
+    if (!$lessonId) {
+        $course = Course::where('name', $matchLesson )
+            ->where('level_id', $level->id)
+            ->first();
+
+        if ($course) {
+            $courseId = $course->id;
+        }
+    }
+
+    if (!$courseId) {
+    $course = Course::where('level_id', $level->id)->first();
+    if (!$course) {
+        return response()->json(['error' => 'No matching course found for the level.'], 400);
+    }
+
+}
     $levelId = $level->id;
-    //dd($lessonId,$courseId);
 
-
+    
     echo "slug: $normalizedTitle\n";
     echo "matched level: $level\n";
     echo "lessonid: $lessonId, levelid: $levelId, courseid: $courseId\n";
+    //dd($matchLesson, $matchedLevel, $levelId, $lessonId, $courseId);
 
     // Process each table
     $isDataPage->each(function ($table) use ($levelId, $lessonId, $courseId) {
@@ -227,22 +274,19 @@ if ($isDataPage && $isDataPage->count() > 0) {
                         $value = 'فروض';
                     }
 
-                    Data::create([
-                        'level_id'  => $levelId,
-                        'lesson_id' => $lessonId,
-                        'course_id' => $courseId,
-                        'title'     => $rowTitle,
-                        'url'       => $linkHref,
-                        'value'     => $value,
-                    ]);
+                    // Data::create([
+                    //     'level_id'  => $levelId,
+                    //     'lesson_id' => $lessonId,
+                    //     'course_id' => $courseId,
+                    //     'title'     => $rowTitle,
+                    //     'url'       => $linkHref,
+                    //     'value'     => $value,
+                    // ]);
                 }
             });
         });
     });
 }
-
-
-
            return view('welcome', compact('content'));
 
         } catch (\Exception $e) {
