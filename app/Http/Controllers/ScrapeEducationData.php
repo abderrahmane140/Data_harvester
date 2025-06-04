@@ -274,14 +274,14 @@ if ($isDataPage && $isDataPage->count() > 0) {
                         $value = 'فروض';
                     }
 
-                    // Data::create([
-                    //     'level_id'  => $levelId,
-                    //     'lesson_id' => $lessonId,
-                    //     'course_id' => $courseId,
-                    //     'title'     => $rowTitle,
-                    //     'url'       => $linkHref,
-                    //     'value'     => $value,
-                    // ]);
+                    Data::create([
+                        'level_id'  => $levelId,
+                        'lesson_id' => $lessonId,
+                        'course_id' => $courseId,
+                        'title'     => $rowTitle,
+                        'url'       => $linkHref,
+                        'value'     => $value,
+                    ]);
                 }
             });
         });

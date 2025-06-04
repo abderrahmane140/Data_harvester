@@ -26,16 +26,6 @@ class DataController extends Controller
     {
         $lessons = Lesson::where('course_id', $courseId)->get();
 
-        if ($lessons->isEmpty()) {
-            $dataItems = Data::where('course_id', $courseId)
-                           ->whereNull('lesson_id')
-                           ->get();
-            
-            return response()->json([
-                'type' => 'data',
-                'items' => $dataItems
-            ]);
-        }
 
         return response()->json([
             'type' => 'lessons',
@@ -43,42 +33,87 @@ class DataController extends Controller
         ]);
     }
 
-public function getData($lessonId)
-{
-    // Special case for "الامتحان"
-    if (request()->has('type') && request()->type === 'الامتحان') {
-            $dataItems = Data::where('title', 'LIKE', '%الامتحان%')
-                                ->whereNull('lesson_id')
-                                ->get();
-        
-        return response()->json($dataItems);
+    public function getData($lessonId, $levelId, $courseId)
+    {
+        $query = Data::where('lesson_id', $lessonId)
+                   ->where('level_id', $levelId)
+                   ->where('course_id', $courseId);
+
+        if (request()->has('type') && request()->type) {
+            $type = request()->type;
+            $query->where(function($q) use ($type) {
+                $q->where('value', $type);
+                
+                // Also check for equivalent types
+                $equivalents = $this->getTypeEquivalents($type);
+                if (!empty($equivalents)) {
+                    $q->orWhereIn('value', $equivalents);
+                }
+            });
+        }
+
+        return response()->json($query->get());
     }
 
-    $query = Data::where('lesson_id', $lessonId);
+    public function getExamData(Request $request)
+    {
+        $request->validate([
+            'level_id' => 'required|integer',
+            'course_id' => 'required|integer'
+        ]);
 
-    // Apply type filter with bilingual handling
-    if (request()->has('type') && request()->type) {
-        $type = request()->type;
-        
-        // Map of Arabic to French equivalents
-        $typeMap = [
+        $exams = Data::where('level_id', $request->level_id)
+                   ->where('course_id', $request->course_id)
+                   ->where(function($query) {
+                       $query->where('title', 'LIKE', '%الامتحان%')
+                             ->orWhere('value', 'LIKE', '%الامتحان%');
+                   })
+                   ->get();
+
+        return response()->json($exams);
+    }
+
+    protected function getTypeEquivalents($type)
+    {
+        $equivalents = [
             'دروس' => ['Coure', 'cours'],
             'فروض' => ['exam', 'examen', 'devoir'],
             'تمارين' => ['exercice', 'exercise'],
             'ملخصات' => ['résumé', 'resume', 'summary'],
             'فيديو' => ['video', 'vidéo']
         ];
-
-        // Find all equivalent types
-        $typesToSearch = [$type];
-        foreach ($typeMap as $arabic => $french) {
-            if ($arabic === $type || in_array($type, $french)) {
-                $typesToSearch = array_merge([$arabic], $french);
-                break;
+        
+        foreach ($equivalents as $arabic => $frenchTypes) {
+            if ($arabic === $type || in_array($type, $frenchTypes)) {
+                return array_merge([$arabic], $frenchTypes);
             }
         }
         
-        $query->whereIn('value', $typesToSearch);
+        return [$type];
+    }
+    public function getSpecialData(Request $request)
+{
+    $request->validate([
+        'level_id' => 'required|integer',
+        'course_id' => 'required|integer',
+        'type' => 'required|string'  // Will be either 'الامتحان' or 'فروض'
+    ]);
+
+    $query = Data::where('level_id', $request->level_id)
+               ->where('course_id', $request->course_id)
+               ->whereNull('lesson_id'); // No lesson_id for these types
+
+    if ($request->type === 'الامتحان') {
+        $query->where(function($q) {
+            $q->where('title', 'LIKE', '%الامتحان%')
+              ->orWhere('value', 'LIKE', '%الامتحان%');
+        });
+    } else if ($request->type === 'فروض') {
+        $query->where(function($q) {
+            $q->where('title', 'LIKE', '%فروض%')
+              ->orWhere('value', 'LIKE', '%فروض%')
+              ->orWhereIn('value', ['exam', 'examen', 'devoir']); // French equivalents
+        });
     }
 
     return response()->json($query->get());

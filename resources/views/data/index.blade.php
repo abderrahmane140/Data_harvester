@@ -41,13 +41,8 @@
 
         <div class="w-full md:w-1/3">
             <label class="block text-sm font-medium text-gray-700 mb-1">Type :</label>
-            <select id="typeSelect" class="w-full border border-gray-300 rounded-md px-3 py-2">
+            <select id="typeSelect" class="w-full border border-gray-300 rounded-md px-3 py-2" disabled>
                 <option value="">-- Tous les types --</option>
-                <option value="دروس">دروس / Cours</option>
-                <option value="فروض">فروض / Examens</option>
-                <option value="تمارين">تمارين / Exercices</option>
-                <option value="ملخصات">ملخصات / Résumés</option>
-                <option value="فيديو">فيديو / Vidéos</option>
                 <option value="الامتحان">الامتحان</option>
             </select>
         </div>
@@ -87,123 +82,203 @@
 </div>
 
 <script>
-    // Add this at the top of your script
-    const typeEquivalents = {
-        // Arabic : [French equivalents]
-        'دروس': ['Coure', 'cours'],
-        'فروض': ['exam', 'examen', 'devoir'],
-        'تمارين': ['exercice', 'exercise'],
-        'ملخصات': ['résumé', 'resume', 'summary'],
-        'فيديو': ['video', 'vidéo']
-    };
+    // Type equivalents mapping (Arabic : [French equivalents])
+const typeEquivalents = {
+    'دروس': ['Coure', 'cours'],
+    'فروض': ['exam', 'examen', 'devoir'],  // This will now be handled specially
+    'تمارين': ['exercice', 'exercise'],
+    'ملخصات': ['résumé', 'resume', 'summary'],
+    'فيديو': ['video', 'vidéo'],
+    'الامتحان': ['examen final', 'final exam']
+};
+
+    // Function to get Arabic equivalent of a type
+    function getArabicType(type) {
+        for (const [arabic, frenchTypes] of Object.entries(typeEquivalents)) {
+            if (arabic === type || frenchTypes.includes(type)) {
+                return arabic;
+            }
+        }
+        return type;
+    }
 
     // Function to get all equivalent types
     function getEquivalentTypes(type) {
+        if (type === 'الامتحان') {
+            return ['الامتحان'];
+        }
+        
         for (const [arabic, frenchTypes] of Object.entries(typeEquivalents)) {
             if (arabic === type || frenchTypes.includes(type)) {
                 return [arabic, ...frenchTypes];
             }
         }
-        return [type]; // Return the type itself if no equivalents found
+        return [type];
     }
-$(document).ready(function () {
-    // Initialize variables
-    let currentLevelId = '';
-    let currentCourseId = '';
-    let currentLessonId = '';
-    let currentType = '';
 
-    // Level select change handler
-    $('#levelSelect').change(function () {
-        currentLevelId = $(this).val();
-        $('#courseSelect').prop('disabled', !currentLevelId)
-                          .html(currentLevelId ? '<option value="">Chargement...</option>' : '<option value="">-- Choisir un cours --</option>');
-        $('#lessonSelect').prop('disabled', true)
-                          .html('<option value="">-- Choisir une leçon --</option>');
-        $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Sélectionnez un cours</td></tr>');
+    $(document).ready(function () {
+        // Initialize variables
+        let currentLevelId = '';
+        let currentCourseId = '';
+        let currentLessonId = '';
+        let currentType = '';
 
-        if (currentLevelId) {
-            $.ajax({
-                url: '/get-courses/' + currentLevelId,
-                type: 'GET',
-                success: function (courses) {
-                    let options = '<option value="">-- Choisir un cours --</option>';
-                    $.each(courses, function (key, course) {
-                        options += `<option value="${course.id}">${course.name}</option>`;
-                    });
-                    $('#courseSelect').html(options).prop('disabled', false);
-                },
-                error: function() {
-                    $('#courseSelect').html('<option value="">Erreur de chargement</option>');
-                }
-            });
-        }
-    });
-    
-    // Course select change handler
-    $('#courseSelect').change(function () {
-        currentCourseId = $(this).val();
-        $('#lessonSelect').prop('disabled', !currentCourseId)
-                          .html(currentCourseId ? '<option value="">Chargement...</option>' : '<option value="">-- Choisir une leçon --</option>');
-        
-        if (currentCourseId) {
-            $.ajax({
-                url: '/get-lessons/' + currentCourseId,
-                type: 'GET',
-                success: function (response) {
-                    if (response.type === 'lessons') {
-                        let options = '<option value="">-- Choisir une leçon --</option>';
-                        $.each(response.items, function (key, lesson) {
-                            options += `<option value="${lesson.id}">${lesson.title}</option>`;
-                        });
-                        $('#lessonSelect').html(options).prop('disabled', false);
-                        $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Sélectionnez une leçon</td></tr>');
-                    } else if (response.type === 'data') {
-                        $('#lessonSelect').html('<option value="">Aucune leçon disponible</option>').prop('disabled', true);
-                        renderContentTable(response.items);
-                    }
-                },
-                error: function() {
-                    $('#lessonSelect').html('<option value="">Erreur de chargement</option>');
-                    $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4 text-red-600">Erreur lors du chargement</td></tr>');
-                }
-            });
-        } else {
+        // Level select change handler
+        $('#levelSelect').change(function () {
+            currentLevelId = $(this).val();
+            currentCourseId = '';
+            currentLessonId = '';
+            currentType = '';
+            
+            $('#courseSelect').prop('disabled', !currentLevelId)
+                            .html(currentLevelId ? '<option value="">Chargement...</option>' : '<option value="">-- Choisir un cours --</option>');
+            $('#lessonSelect').prop('disabled', true)
+                            .html('<option value="">-- Choisir une leçon --</option>');
+            $('#typeSelect').prop('disabled', true)
+                          .html('<option value="">-- Tous les types --</option><option value="الامتحان">الامتحان</option>');
             $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Sélectionnez un cours</td></tr>');
+
+            if (currentLevelId) {
+                $.ajax({
+                    url: '/get-courses/' + currentLevelId,
+                    type: 'GET',
+                    success: function (courses) {
+                        let options = '<option value="">-- Choisir un cours --</option>';
+                        $.each(courses, function (key, course) {
+                            options += `<option value="${course.id}">${course.name}</option>`;
+                        });
+                        $('#courseSelect').html(options).prop('disabled', false);
+                    },
+                    error: function() {
+                        $('#courseSelect').html('<option value="">Erreur de chargement</option>');
+                    }
+                });
+            }
+        });
+        
+        // Course select change handler
+        $('#courseSelect').change(function () {
+            currentCourseId = $(this).val();
+            currentLessonId = '';
+            currentType = '';
+            
+            $('#lessonSelect').prop('disabled', !currentCourseId)
+                            .html(currentCourseId ? '<option value="">Chargement...</option>' : '<option value="">-- Choisir une leçon --</option>');
+            $('#typeSelect').prop('disabled', true)
+                          .html('<option value="">-- Tous les types --</option><option value="الامتحان">الامتحان</option>');
+            
+            if (currentCourseId) {
+                $.ajax({
+                    url: '/get-lessons/' + currentCourseId,
+                    type: 'GET',
+                    success: function (response) {
+                        if (response.type === 'lessons') {
+                            let options = '<option value="">-- Choisir une leçon --</option>';
+                            $.each(response.items, function (key, lesson) {
+                                options += `<option value="${lesson.id}">${lesson.title}</option>`;
+                            });
+                            $('#lessonSelect').html(options).prop('disabled', false);
+                            $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Sélectionnez une leçon</td></tr>');
+                        } else if (response.type === 'data') {
+                            $('#lessonSelect').html('<option value="">Aucune leçon disponible</option>').prop('disabled', true);
+                            updateTypeSelect(response.items);
+                            $('#typeSelect').prop('disabled', false);
+                            renderContentTable(response.items);
+                        }
+                    },
+                    error: function() {
+                        $('#lessonSelect').html('<option value="">Erreur de chargement</option>');
+                        $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4 text-red-600">Erreur lors du chargement</td></tr>');
+                    }
+                });
+            } else {
+                $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Sélectionnez un cours</td></tr>');
+            }
+        });
+
+        // Lesson select change handler
+        $('#lessonSelect').change(function () {
+            currentLessonId = $(this).val();
+            currentType = '';
+            
+            if (currentLessonId) {
+                $('#typeSelect').prop('disabled', false)
+                              .html('<option value="">-- Tous les types --</option><option value="الامتحان">الامتحان</option>');
+                refreshTableData();
+            } else {
+                $('#typeSelect').prop('disabled', true)
+                              .html('<option value="">-- Tous les types --</option><option value="الامتحان">الامتحان</option>');
+                $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Sélectionnez une leçon</td></tr>');
+            }
+        });
+
+        // Type select change handler
+        $('#typeSelect').change(function() {
+            currentType = $(this).val();
+            refreshTableData();
+        });
+
+        // Function to update type select dropdown
+        // Modify the updateTypeSelect function to NOT filter the dropdown options
+function updateTypeSelect(dataItems, preserveAllTypes = true) {
+    const $typeSelect = $('#typeSelect');
+    const currentValue = $typeSelect.val();
+    
+    // Only update the dropdown if we're not preserving all types
+    // or if it's the initial load (no currentValue)
+    if (!preserveAllTypes || !currentValue) {
+        // Get all unique Arabic types from the data
+        const arabicTypes = new Set();
+        dataItems.forEach(item => {
+            arabicTypes.add(getArabicType(item.value));
+        });
+        
+        let options = '<option value="">-- Tous les types --</option><option value="الامتحان">الامتحان</option>';
+        
+        // Add other types sorted
+        Array.from(arabicTypes).sort().forEach(type => {
+            if (type !== 'الامتحان') {
+                options += `<option value="${type}">${type}</option>`;
+            }
+        });
+        
+        $typeSelect.html(options).prop('disabled', false);
+        
+        // Restore selection if possible
+        if (currentValue) {
+            $typeSelect.val(currentValue);
         }
-    });
+    }
+}
 
-    // Lesson select change handler
-    $('#lessonSelect').change(function () {
-        currentLessonId = $(this).val();
-        refreshTableData();
-    });
-
-    // Type select change handler
-    $('#typeSelect').change(function() {
-        currentType = $(this).val();
-        refreshTableData();
-    });
-
-    // Function to refresh table data based on current selections
+// Modify the refreshTableData function calls to preserve all types
 function refreshTableData() {
-    // Special case for "الامتحان" - fetch exams without lesson_id
-    if (currentType === 'الامتحان') {
+    // Special case for exams
+     if (currentType === 'الامتحان' || currentType === 'فروض') {
+        if (!currentLevelId || !currentCourseId) {
+            $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Sélectionnez un niveau et un cours</td></tr>');
+            return;
+        }
+        
         $.ajax({
-            url: '/get-data/0', // Using 0 as dummy lesson_id
+            url: '/get-special-data',
             type: 'GET',
-            data: { type: 'الامتحان' },
+            data: {
+                level_id: currentLevelId,
+                course_id: currentCourseId,
+                type: currentType  // Send which special type we're requesting
+            },
             success: function(dataItems) {
-                // Normalize display (though exams will already be in Arabic)
+                // Normalize all as the selected type
                 const normalizedItems = dataItems.map(item => ({
                     ...item,
-                    displayValue: 'الامتحان'
+                    displayValue: currentType
                 }));
                 renderContentTable(normalizedItems);
             },
             error: function() {
                 $('#customContentTable').html(
-                    '<tr><td colspan="3" class="text-center py-4 text-red-600">Error loading exams</td></tr>'
+                    '<tr><td colspan="3" class="text-center py-4 text-red-600">Erreur de chargement</td></tr>'
                 );
             }
         });
@@ -212,134 +287,141 @@ function refreshTableData() {
 
     // Normal case for other types
     if (currentLessonId) {
-        // Load lesson-specific data with type filter
         $.ajax({
-            url: '/get-data/' + currentLessonId,
+            url: '/get-data/' + currentLessonId + '/' + currentLevelId + '/' + currentCourseId,
             type: 'GET',
             data: { type: currentType },
             success: function(dataItems) {
-                // Normalize all types to Arabic for display
-                const normalizedItems = dataItems.map(item => {
-                    const arabicType = Object.entries(typeEquivalents).find(
-                        ([arabic, frenchTypes]) => frenchTypes.includes(item.value)
-                    )?.[0] || item.value;
-                    return {...item, displayValue: arabicType};
-                });
+                const normalizedItems = dataItems.map(item => ({
+                    ...item,
+                    displayValue: getArabicType(item.value)
+                }));
+                // Pass true to preserve all types in dropdown
+                updateTypeSelect(dataItems, true);
                 renderContentTable(normalizedItems);
             },
             error: function() {
                 $('#customContentTable').html(
-                    '<tr><td colspan="3" class="text-center py-4 text-red-600">Error loading lesson data</td></tr>'
+                    '<tr><td colspan="3" class="text-center py-4 text-red-600">Erreur de chargement des données</td></tr>'
                 );
             }
         });
     } else if (currentCourseId) {
-        // Load course-level data
+        // Course-level data
         $.ajax({
             url: '/get-lessons/' + currentCourseId,
             type: 'GET',
             success: function(response) {
                 if (response.type === 'data') {
-                    // Normalize and filter items
-                    const filteredItems = response.items.map(item => {
-                        const arabicType = Object.entries(typeEquivalents).find(
-                            ([arabic, frenchTypes]) => frenchTypes.includes(item.value)
-                        )?.[0] || item.value;
-                        return {...item, displayValue: arabicType};
-                    }).filter(item => {
-                        if (!currentType) return true;
-                        const equivalentTypes = getEquivalentTypes(currentType);
-                        return equivalentTypes.includes(item.value) || 
-                               equivalentTypes.includes(item.displayValue);
-                    });
+                    const normalizedItems = response.items.map(item => ({
+                        ...item,
+                        displayValue: getArabicType(item.value)
+                    }));
+                    
+                    // Filter by type if selected
+                    const filteredItems = currentType 
+                        ? normalizedItems.filter(item => {
+                            const equivalents = getEquivalentTypes(currentType);
+                            return equivalents.includes(item.value) || 
+                                   equivalents.includes(item.displayValue);
+                        })
+                        : normalizedItems;
+                    
+                    // Pass true to preserve all types in dropdown
+                    updateTypeSelect(response.items, true);
                     renderContentTable(filteredItems);
                 }
             },
             error: function() {
                 $('#customContentTable').html(
-                    '<tr><td colspan="3" class="text-center py-4 text-red-600">Error loading course data</td></tr>'
+                    '<tr><td colspan="3" class="text-center py-4 text-red-600">Erreur de chargement des données</td></tr>'
                 );
             }
         });
     } else {
-        // No lesson or course selected
         $('#customContentTable').html(
-            '<tr><td colspan="3" class="text-center py-4">Please select a course or lesson</td></tr>'
+            '<tr><td colspan="3" class="text-center py-4">Sélectionnez un cours ou une leçon</td></tr>'
         );
     }
 }
-    // Function to render content table
-function renderContentTable(dataItems) {
-    if (!dataItems || dataItems.length === 0) {
-        $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Aucune donnée disponible</td></tr>');
-        return;
-    }
 
-    const grouped = {};
-    
-    // Group by display value (Arabic normalized)
-    dataItems.forEach(item => {
-        const displayValue = item.displayValue || item.value;
-        if (!grouped[displayValue]) {
-            grouped[displayValue] = [];
+        // Function to render content table
+        function renderContentTable(dataItems) {
+            if (!dataItems || dataItems.length === 0) {
+                $('#customContentTable').html('<tr><td colspan="3" class="text-center py-4">Aucune donnée disponible</td></tr>');
+                return;
+            }
+
+            const grouped = {};
+            
+            // Group by display value
+            dataItems.forEach(item => {
+                const displayValue = item.displayValue || getArabicType(item.value);
+                if (!grouped[displayValue]) {
+                    grouped[displayValue] = [];
+                }
+                grouped[displayValue].push({
+                    title: item.title,
+                    url: item.url,
+                    type: item.value
+                });
+            });
+
+            let html = '';
+            for (const [type, items] of Object.entries(grouped)) {
+                if (!currentType) {
+                    html += `<tr class="bg-gray-100 font-semibold"><td colspan="3">${type}</td></tr>`;
+                }
+                
+                items.forEach(item => {
+                    const isVideo = type === 'فيديو' || 
+                                  (typeEquivalents['فيديو'] && typeEquivalents['فيديو'].includes(item.type));
+                    
+                    html += `
+                        <tr>
+                            <td class="border px-4 py-2">${type}</td>
+                            <td class="border px-4 py-2">${item.title}</td>
+                            <td class="border px-4 py-2 flex justify-center gap-2">
+                                ${isVideo ? `
+                                <a href="${item.url}" target="_blank" title="Voir la vidéo" class="text-blue-600 hover:text-blue-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </a>
+                                ` : `
+                                <a href="${item.url}" download title="Télécharger" class="text-green-600 hover:text-green-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+                                    </svg>
+                                </a>
+                                <button onclick="openPdfModal('${item.url}')" title="Voir" class="text-blue-600 hover:text-blue-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </button>
+                                `}
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            $('#customContentTable').html(html);
         }
-        grouped[displayValue].push({
-            title: item.title,
-            url: item.url
-        });
     });
 
-    let html = '';
-    for (const value in grouped) {
-        if (!currentType) {
-            html += `<tr class="bg-gray-100 font-semibold"><td colspan="3">${value}</td></tr>`;
-        }
-        
-        grouped[value].forEach(item => {
-            html += `
-                <tr>
-                    <td class="border px-4 py-2">${value}</td>
-                    <td class="border px-4 py-2">${item.title}</td>
-                    <td class="border px-4 py-2 flex justify-center gap-2">
-                  <a href="${item.url}" download title="Télécharger" class="text-green-600 hover:text-green-800">
-                            <!-- Download Icon -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
-                            </svg>
-                        </a>
-                        <button onclick="openPdfModal('${item.url}')" title="Voir"
-                                class="text-blue-600 hover:text-blue-800">
-                            <!-- Eye Icon -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                            </svg>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
+    // Modal functions
+    function openPdfModal(url) {
+        $('#pdfViewer').attr('src', url);
+        $('#pdfModal').removeClass('hidden').addClass('flex');
     }
 
-    $('#customContentTable').html(html);
-}
-});
-
-// Modal functions
-function openPdfModal(url) {
-    $('#pdfViewer').attr('src', url);
-    $('#pdfModal').removeClass('hidden').addClass('flex');
-}
-
-function closePdfModal() {
-    $('#pdfModal').addClass('hidden').removeClass('flex');
-    $('#pdfViewer').attr('src', '');
-}
+    function closePdfModal() {
+        $('#pdfModal').addClass('hidden').removeClass('flex');
+        $('#pdfViewer').attr('src', '');
+    }
 </script>
 </body>
 </html>
